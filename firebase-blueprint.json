@@ -1,0 +1,286 @@
+{
+  "entities": {
+    "Setting": {
+      "title": "Global Application Settings",
+      "description": "Critical configuration for WhatsApp, Location, and Contact info",
+      "type": "object",
+      "properties": {
+        "whatsappNumber": { "type": "string", "description": "WhatsApp number with country code" },
+        "address": { "type": "string", "description": "Physical address in Bahria Town" },
+        "phone": { "type": "string", "description": "Primary contact phone" },
+        "email": { "type": "string", "description": "Official hotel email" },
+        "lat": { "type": "number", "description": "Latitude for map" },
+        "lng": { "type": "number", "description": "Longitude for map" },
+        "orderCounter": { "type": "number", "description": "Counter for generating order IDs" }
+      },
+      "required": ["whatsappNumber", "address", "phone", "email", "lat", "lng"]
+    },
+    "MenuItem": {
+      "title": "Chef's Selection",
+      "description": "Individual food and beverage items available for order",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "image": { "type": "string", "format": "uri" },
+        "isAvailable": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "price", "isAvailable"]
+    },
+    "SupportTicket": {
+      "title": "Support Ticket",
+      "description": "Message to admin",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "message": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "WaiterCall": {
+      "title": "Waiter Call",
+      "description": "Service request",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "tableNumber": { "type": "string" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "KindnessToken": {
+      "title": "Kindness Token",
+      "description": "Donated tea/food item",
+      "type": "object",
+      "properties": {
+        "donorId": { "type": "string" },
+        "donorName": { "type": "string" },
+        "itemName": { "type": "string" },
+        "status": { "type": "string", "enum": ["available", "claimed"] },
+        "claimedBy": { "type": "string" },
+        "claimedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "LoyaltyReward": {
+      "title": "Loyalty Reward",
+      "description": "A reward won in Mahfil-e-Qismat",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "phone": { "type": "string" },
+        "rewardType": { "type": "string", "enum": ["free_drink", "loyalty_points", "social_discount"] },
+        "code": { "type": "string" },
+        "isRedeemed": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      }
+    },
+      "Order": {
+        "title": "Customer Order",
+        "description": "Food/Beverage order details",
+        "type": "object",
+        "properties": {
+          "customerName": { "type": "string" },
+          "address": { "type": "string" },
+          "note": { "type": "string" },
+          "total": { "type": "number" },
+          "status": { "type": "string", "enum": ["pending", "completed", "cancelled", "AI_ORDER"] },
+          "items": { "type": "array" },
+          "aiMetadata": { "type": "object" },
+          "isGenieOrder": { "type": "boolean" },
+          "createdAt": { "type": "string" }
+        }
+      },
+    "DiaryNote": {
+      "title": "Heritage Diary Entry",
+      "description": "Public guestbook message",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "text": { "type": "string" },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      }
+    },
+    "TableReservation": {
+      "title": "Table Reservation",
+      "description": "Guest table reservation for Quetta Mahfil dining hall",
+      "type": "object",
+      "properties": {
+        "customerName": { "type": "string" },
+        "phone": { "type": "string" },
+        "guests": { "type": "number" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled", "completed"] },
+        "userId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["customerName", "phone", "guests", "date", "time", "status"]
+    },
+    "GuestCheckIn": {
+      "title": "Guest Check-In",
+      "description": "On-site arrival check-in with QR code and loyalty verification",
+      "type": "object",
+      "properties": {
+        "guestId": { "type": "string" },
+        "guestName": { "type": "string" },
+        "guestPhone": { "type": "string" },
+        "pointsAwarded": { "type": "number" },
+        "tableOrArea": { "type": "string" },
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "checkedInAt": { "type": "string" },
+        "status": { "type": "string", "enum": ["completed", "verified", "cancelled"] }
+      },
+      "required": ["guestId", "pointsAwarded", "checkedInAt"]
+    }
+  },
+  "firestore": {
+    "guest_checkins/{checkinId}": {
+      "schema": "GuestCheckIn",
+      "description": "Historical records of guest on-premise check-ins and loyalty transactions"
+    },
+    "settings/main": {
+      "schema": "Setting",
+      "description": "The primary configuration bundle for the application"
+    },
+    "menu/{itemId}": {
+      "schema": "MenuItem",
+      "description": "Collection of all items served at Quetta Mahfil"
+    },
+    "support_tickets/{ticketId}": {
+      "schema": "SupportTicket",
+      "description": "Direct communication with Usama Khan"
+    },
+    "waiter_calls/{callId}": {
+      "schema": "WaiterCall",
+      "description": "Real-time table service requests"
+    },
+    "kindness_wall/{tokenId}": {
+      "schema": "KindnessToken",
+      "description": "Donated items for the Wall of Kindness"
+    },
+    "loyalty_rewards/{rewardId}": {
+      "schema": "LoyaltyReward",
+      "description": "Earned rewards from Mahfil-e-Qismat"
+    },
+    "mahfil_orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer purchase history and live queue"
+    },
+    "mahfil_diary/{noteId}": {
+      "schema": "DiaryNote",
+      "description": "Public community stories and feedback"
+    },
+    "table_reservations/{reservationId}": {
+      "schema": "TableReservation",
+      "description": "Guest table booking records managed by guests and staff"
+    },
+    "user_memories/{userId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "preferences": { 
+            "type": "object",
+            "properties": {
+              "preferredOrders": { "type": "array", "items": { "type": "string" } },
+              "greetingStyle": { "type": "string" },
+              "topicsOfInterest": { "type": "array", "items": { "type": "string" } },
+              "personalityNotes": { "type": "string" },
+              "lastAnalyzedAt": { "type": "string" }
+            }
+          },
+          "rawMemory": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "description": "Persistent AI memory for personalized experiences"
+    },
+    "ai_chats/{chatId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": { "type": "string", "enum": ["user", "assistant", "system"] },
+                "content": { "type": "string" },
+                "timestamp": { "type": "string" }
+              }
+            }
+          },
+          "updatedAt": { "type": "string" }
+        }
+      },
+      "description": "DeepSeek R1 persistent chat history"
+    },
+    "settings/genie": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "object",
+            "properties": {
+              "joke": { "type": "array", "items": { "type": "string" } },
+              "scary": { "type": "array", "items": { "type": "string" } },
+              "flirt": { "type": "array", "items": { "type": "string" } },
+              "pissed": { "type": "array", "items": { "type": "string" } },
+              "auto": { "type": "array", "items": { "type": "string" } },
+              "order": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
+      },
+      "description": "Cloud-synced messages for the CyberGenie OMEGA engine"
+    },
+    "app_logs": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "action": { "type": "string" },
+          "key": { "type": "string" },
+          "value": { "type": "string" },
+          "createdAt": { "type": "string" }
+        }
+      },
+      "description": "System action logs for admin configurations and events"
+    },
+    "app_settings": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "config_key": { "type": "string" },
+          "config_value": { "type": "string" },
+          "updatedAt": { "type": "string" },
+          "updatedBy": { "type": "string" }
+        }
+      },
+      "description": "Global application configuration settings"
+    },
+    "ai_queries": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "timestamp": { "type": "string" }
+        }
+      },
+      "description": "User queries processed by the Genie AI engine"
+    },
+    "admins/{adminId}": {
+      "schema": { "type": "object", "properties": { "role": { "type": "string" } } },
+      "description": "Authorized administrative accounts"
+    }
+  }
+}

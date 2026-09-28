@@ -1,0 +1,255 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // -------------------------------------------------------------------------
+    // PILLAR 1: Global Deny-by-Default Barrier
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // PILLAR 2: Primitives & Authorization Helpers
+    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isSignedIn() &&
+             request.auth.token.email == "usamakhn694@gmail.com" &&
+             request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        isSuperAdmin() ||
+        (request.auth.token.email_verified == true && (
+          exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+          request.auth.token.role == 'admin' ||
+          request.auth.token.admin == true
+        ))
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // -------------------------------------------------------------------------
+    // PILLAR 3: Field-Level Validation Schemas & Anti-Mass-Assignment
+    // -------------------------------------------------------------------------
+
+    // Sensitive server-managed fields that client updates MUST NOT modify
+    function doesNotModifyRestrictedUserFields() {
+      return !incoming().diff(existing()).affectedKeys().hasAny([
+        'isAdmin', 'role', 'adminRole', 'permissions', 'points', 'loyaltyPoints',
+        'tier', 'level', 'badges', 'isSuperAdmin', 'createdAt'
+      ]);
+    }
+
+    function isValidUserCreate(userId) {
+      return isOwner(userId) &&
+             incoming().keys().hasOnly([
+               'uid', 'userId', 'email', 'displayName', 'phoneNumber',
+               'photoURL', 'createdAt', 'updatedAt', 'lastLogin', 'preferences', 'addresses', 'biometricEnabled'
+             ]) &&
+             (!incoming().keys().hasAny(['isAdmin', 'role', 'adminRole', 'permissions', 'points', 'isSuperAdmin']));
+    }
+
+    function isValidProfileCreate(userId) {
+      return isOwner(userId) &&
+             incoming().keys().hasAll(['userId', 'displayName']) &&
+             incoming().userId == request.auth.uid &&
+             incoming().displayName is string && incoming().displayName.size() <= 100 &&
+             (!incoming().keys().hasAny(['isAdmin', 'role', 'adminRole', 'permissions', 'points', 'isSuperAdmin']));
+    }
+
+    function isValidOrderCreate() {
+      return incoming().keys().hasAll(['customerName', 'total', 'status', 'createdAt', 'userId']) &&
+             incoming().userId == request.auth.uid &&
+             incoming().customerName is string && incoming().customerName.size() <= 100 &&
+             incoming().total is number && incoming().total > 0 &&
+             incoming().status == 'pending' &&
+             incoming().createdAt == request.time;
+    }
+
+    function isValidOrderCustomerCancel() {
+      return existing().userId == request.auth.uid &&
+             existing().status == 'pending' &&
+             incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+             incoming().status == 'cancelled';
+    }
+
+    function isValidReservationCreate() {
+      return incoming().keys().hasAll(['customerName', 'phone', 'guests', 'date', 'time', 'status', 'userId']) &&
+             incoming().userId == request.auth.uid &&
+             incoming().customerName is string && incoming().customerName.size() <= 100 &&
+             incoming().phone is string && incoming().phone.size() <= 30 &&
+             incoming().guests is number && incoming().guests >= 1 && incoming().guests <= 50 &&
+             incoming().status in ['pending', 'confirmed'];
+    }
+
+    function isValidDiaryEntry() {
+      return incoming().keys().hasAll(['name', 'text', 'userId', 'createdAt']) &&
+             incoming().userId == request.auth.uid &&
+             incoming().text is string && incoming().text.size() <= 1000 &&
+             incoming().createdAt == request.time;
+    }
+
+    // -------------------------------------------------------------------------
+    // PILLAR 4: Collection Rules
+    // -------------------------------------------------------------------------
+
+    // Global Public Settings (Read by anyone, write restricted to verified Admins)
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(docId);
+    }
+
+    // Authoritative Menu Catalog (Read by anyone, write restricted to verified Admins)
+    match /menu/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(itemId);
+    }
+
+    // Support Inquiries (Customer isolated, readable by creator or Admin)
+    match /support_tickets/{ticketId} {
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidId(ticketId);
+      allow get: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update, delete: if isAdmin();
+    }
+
+    // Waiter Calling System (Requires authenticated customer with rate-safe parameters)
+    match /waiter_calls/{callId} {
+      allow create: if isSignedIn() &&
+                       isValidId(callId) &&
+                       incoming().keys().hasAll(['tableNumber', 'status']) &&
+                       incoming().tableNumber is string && incoming().tableNumber.size() <= 20 &&
+                       incoming().status == 'pending';
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Community Kindness Wall
+    match /kindness_wall/{tokenId} {
+      allow read: if true;
+      allow create: if isSignedIn() && incoming().donorId == request.auth.uid && isValidId(tokenId);
+      allow update: if isSignedIn() && (
+        (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'claimedBy', 'claimedAt']) && incoming().status == 'claimed') ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Loyalty Rewards
+    match /loyalty_rewards/{rewardId} {
+      allow get: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin() && isValidId(rewardId);
+      allow update: if (isOwner(existing().userId) && incoming().diff(existing()).affectedKeys().hasOnly(['isRedeemed'])) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Authoritative Orders (Strict lifecycle enforcement)
+    match /mahfil_orders/{orderId} {
+      allow create: if isSignedIn() && isValidOrderCreate() && isValidId(orderId);
+      allow get: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() || (isSignedIn() && isValidOrderCustomerCancel());
+      allow delete: if isAdmin();
+    }
+
+    // Table Reservations
+    match /table_reservations/{reservationId} {
+      allow create: if isSignedIn() && isValidReservationCreate() && isValidId(reservationId);
+      allow get: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if isAdmin() || (
+        isSignedIn() &&
+        existing().userId == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['status']) &&
+        incoming().status == 'cancelled'
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Guest Check-ins (Only authorized staff/admin can award points to prevent forgery)
+    match /guest_checkins/{checkinId} {
+      allow read: if isSignedIn() && (resource.data.guestId == request.auth.uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Community Heritage Diary
+    match /mahfil_diary/{noteId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidDiaryEntry() && isValidId(noteId);
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && isValidDiaryEntry();
+      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    }
+
+    // Users Collection (Strict anti-mass-assignment and owner isolation)
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if (isValidUserCreate(userId) || isSuperAdmin()) && isValidId(userId);
+      allow update: if ((isOwner(userId) && doesNotModifyRestrictedUserFields()) || isSuperAdmin()) && isValidId(userId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // User Profiles Collection
+    match /user_profiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if (isValidProfileCreate(userId) || isSuperAdmin()) && isValidId(userId);
+      allow update: if ((isOwner(userId) && doesNotModifyRestrictedUserFields()) || isSuperAdmin()) && isValidId(userId);
+      allow delete: if isSuperAdmin();
+    }
+
+    // Private AI User Memories (Strict customer privacy boundary)
+    match /user_memories/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    // AI Chat History (Strict creator isolation)
+    match /ai_chats/{chatId} {
+      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidId(chatId);
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+    }
+
+    // Admins Directory (Read-only for verified admins, zero client write)
+    match /admins/{adminId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Security & App Logs (Strict admin-only read/delete, authenticated-only create)
+    match /app_logs/{logId} {
+      allow create: if isSignedIn() &&
+                       isValidId(logId) &&
+                       incoming().keys().hasOnly(['action', 'key', 'value', 'createdAt', 'userId']) &&
+                       incoming().userId == request.auth.uid;
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
+    // App Global Settings
+    match /app_settings/{configId} {
+      allow read: if true;
+      allow write: if isAdmin() && isValidId(configId);
+    }
+  }
+}

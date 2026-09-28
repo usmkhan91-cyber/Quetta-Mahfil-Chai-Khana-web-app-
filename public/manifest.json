@@ -1,0 +1,23 @@
+{
+  "name": "Quetta Mahfil Chai Khana",
+  "short_name": "Mahfil",
+  "description": "Authentic Quetta Experience in Lahore - Tea, Parathas & Mahfil",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4a0404",
+  "theme_color": "#4a0404",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=192&h=192&fit=crop",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1541167760496-1628856ab772?q=80&w=512&h=512&fit=crop",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Deny-by-default wildcard protection
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Helper: Check if requesting user is verified admin
+    function isAdmin() {
+      return request.auth != null &&
+        request.auth.token.email == "usamakhn694@gmail.com" &&
+        request.auth.token.email_verified == true;
+    }
+
+    // Heritage Gallery Content (Publicly viewable, Admin-only write)
+    match /gallery/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin() &&
+                    request.resource.size < 10 * 1024 * 1024 &&
+                    request.resource.contentType.matches('image/.*');
+    }
+
+    // User Profile Photos (Owner-isolated write, strictly image types up to 5MB)
+    match /users/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+                    request.auth.uid == userId &&
+                    request.resource.size < 5 * 1024 * 1024 &&
+                    request.resource.contentType.matches('image/(jpeg|png|webp|gif)');
+    }
+
+    // Support Inquiries Attachments (Owner or Admin read, strictly safe types)
+    match /support/{userId}/{fileName} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null &&
+                    request.auth.uid == userId &&
+                    request.resource.size < 5 * 1024 * 1024 &&
+                    request.resource.contentType.matches('(image/.*|application/pdf)');
+    }
+
+    // Public Assets
+    match /public/{fileName} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+  }
+}

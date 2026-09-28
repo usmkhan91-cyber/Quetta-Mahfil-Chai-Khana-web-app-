@@ -1,0 +1,21 @@
+{
+  "name": "Remix Quetta Mahfil Chai Khana",
+  "description": "Professional Hybrid Business Application for Quetta Mahfil. Featuring native hardware integration, intelligent local storage, AI-powered hospitality, and deep-level admin controls.",
+  "requestFramePermissions": [
+    "geolocation",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API",
+    "Zero-Latency Heritage Search",
+    "Real-time Mahfil Sync",
+    "AI Saki Intelligent Companion",
+    "Ghost Vault Identity Storage",
+    "3D Heritage Previews",
+    "Autonomous System Guard",
+    "Mahfil-e-Qismat Gamification",
+    "Kindness Wall Token Gifting",
+    "Legacy Hujra Admin Node",
+    "PWA Offline Persistence"
+  ]
+}
